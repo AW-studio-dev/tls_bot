@@ -16,7 +16,9 @@ class Application:
         signal.signal(signal.SIGTERM, self.signal_handler)
     
     def signal_handler(self, signum, frame):
+        print(f"\nArrêt du système...")
         self.running = False
+        self.booking_manager.cleanup()
     
     def run(self):
         try:
@@ -25,6 +27,8 @@ class Application:
             
             if not self.booking_manager.start_monitoring():
                 return
+            
+            print(" Système AI TLS Bot démarré - Surveillance en cours...")
             
             while self.running:
                 try:
@@ -36,11 +40,15 @@ class Application:
                         time.sleep(1)
                         
                 except Exception as e:
-                    notify_error(f"Main loop: {str(e)}")
+                    print(f"Erreur boucle principale: {e}")
+                    notify_error(f"Boucle principale: {str(e)}")
                     time.sleep(30)
             
+            print("✅ Arrêt du système terminé")
+            
         except Exception as e:
-            notify_error(f"Critical: {str(e)}")
+            print(f" Erreur critique: {e}")
+            notify_error(f"Critique: {str(e)}")
             sys.exit(1)
 
 if __name__ == "__main__":
