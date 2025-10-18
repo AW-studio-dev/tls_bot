@@ -4,7 +4,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
-import undetected_chromedriver as uc
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.service import Service
 import time
 import random
 import logging
@@ -17,14 +18,13 @@ class AIAutomation:
     def __init__(self, headless=True):
         self.proxy_manager = ProxyManager()
         self.captcha_solver = CaptchaSolver()
-        self.driver = self._create_undetected_driver(headless)
+        self.driver = self._create_driver(headless)
         self.wait = WebDriverWait(self.driver, 20)
         
-    def _create_undetected_driver(self, headless):
+    def _create_driver(self, headless):
         proxy = self.proxy_manager.get_proxy()
-        proxy_url = proxy['http'] if proxy else None
         
-        options = uc.ChromeOptions()
+        options = Options()
         
         if headless:
             options.add_argument('--headless')
@@ -35,12 +35,27 @@ class AIAutomation:
         options.add_argument('--disable-blink-features=AutomationControlled')
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
+        
+        # Human-like user agent
         options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
         
-        if proxy_url:
-            options.add_argument(f'--proxy-server={proxy_url}')
+        # Proxy configuration
+        if proxy:
+            options.add_argument(f'--proxy-server={proxy["http"]}')
         
-        driver = uc.Chrome(options=options)
+        # Additional stealth options
+        options.add_argument('--disable-blink-features=AutomationControlled')
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option('useAutomationExtension', False)
+        
+        # Use webdriver-manager to handle Chrome driver
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=options)
+        
+        # Execute CDP commands to avoid detection
+        driver.execute_cdp_cmd('Network.setUserAgentOverride', {
+            "userAgent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        })
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         
         return driver
@@ -54,29 +69,32 @@ class AIAutomation:
             time.sleep(random.uniform(0.1, 0.3))
     
     def analyze_page(self):
-        """Simple page analysis without AI"""
-        page_source = self.driver.page_source.lower()
-        current_url = self.driver.current_url
-        
-        if 'login' in page_source or 'connexion' in page_source or 'connectez-vous' in page_source:
-            return 'login_page'
-        elif 'réservez votre rendez-vous' in page_source or 'prendre rendez-vous' in page_source:
-            return 'booking_page'
-        elif 'contactez-nous' in page_source and 'rendez-vous' in page_source:
-            return 'no_slots_available'
-        elif 'calendar' in page_source or 'date' in page_source or 'créneaux' in page_source:
-            return 'slots_available'
-        elif 'confirmer' in page_source and 'brouillon' in page_source:
-            return 'application_confirmation'
-        elif 'voyagez en groupe' in page_source or 'liste des demandes' in page_source:
-            return 'travel_groups'
-        elif 'france-visas' in page_source or 'numéro de référence' in page_source:
-            return 'application_form'
-        elif 'travel-groups' in current_url:
-            return 'travel_groups'
-        elif 'appointment-booking' in current_url:
-            return 'booking_page'
-        else:
+        """Simple page analysis"""
+        try:
+            page_source = self.driver.page_source.lower()
+            current_url = self.driver.current_url
+            
+            if 'login' in page_source or 'connexion' in page_source or 'connectez-vous' in page_source:
+                return 'login_page'
+            elif 'réservez votre rendez-vous' in page_source or 'prendre rendez-vous' in page_source:
+                return 'booking_page'
+            elif 'contactez-nous' in page_source and 'rendez-vous' in page_source:
+                return 'no_slots_available'
+            elif 'calendar' in page_source or 'date' in page_source or 'créneaux' in page_source:
+                return 'slots_available'
+            elif 'confirmer' in page_source and 'brouillon' in page_source:
+                return 'application_confirmation'
+            elif 'voyagez en groupe' in page_source or 'liste des demandes' in page_source:
+                return 'travel_groups'
+            elif 'france-visas' in page_source or 'numéro de référence' in page_source:
+                return 'application_form'
+            elif 'travel-groups' in current_url:
+                return 'travel_groups'
+            elif 'appointment-booking' in current_url:
+                return 'booking_page'
+            else:
+                return 'unknown_page'
+        except:
             return 'unknown_page'
     
     def smart_login(self, email, password, country):
@@ -147,28 +165,6 @@ class AIAutomation:
                     ref_fields = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'France-Visas') or contains(text(), 'référence')]/following::input[1]")
                     if ref_fields:
                         self.human_type(ref_fields[0], france_visas_ref)
-                        self.human_like_delay(0.5, 1)
-                except:
-                    pass
-            
-            # Fill name fields if available
-            first_name = user_data.get('first_name', '')
-            last_name = user_data.get('last_name', '')
-            
-            if first_name:
-                try:
-                    first_name_fields = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'Prénom')]/following::input[1]")
-                    if first_name_fields:
-                        self.human_type(first_name_fields[0], first_name)
-                        self.human_like_delay(0.5, 1)
-                except:
-                    pass
-            
-            if last_name:
-                try:
-                    last_name_fields = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'Nom')]/following::input[1]")
-                    if last_name_fields:
-                        self.human_type(last_name_fields[0], last_name)
                         self.human_like_delay(0.5, 1)
                 except:
                     pass
