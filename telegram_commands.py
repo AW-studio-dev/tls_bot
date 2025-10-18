@@ -2,7 +2,7 @@ import requests
 import sqlite3
 import time
 from config import BOT_TOKEN, ADMIN_CHAT_ID
-from database import add_tunisian_user
+from database import add_complete_user
 
 class TelegramCommandHandler:
     def __init__(self):
@@ -27,7 +27,7 @@ class TelegramCommandHandler:
         text = message_data.get('text', '').strip()
         
         if str(chat_id) != self.admin_chat_id:
-            self.send_message(chat_id, "Unauthorized access")
+            self.send_message(chat_id, "❌ Accès non autorisé")
             return
         
         if text.startswith('/'):
@@ -38,44 +38,62 @@ class TelegramCommandHandler:
         command = command.lower()
         
         if command == '/start':
-            return "TLS Bot Started! Use /help for commands"
-        elif command == '/help':
+            return " <b>Bot AI TLS Démarré !</b>\nUtilisez /aide pour les commandes"
+        elif command == '/aide':
             return self.show_help()
-        elif command == '/users':
+        elif command == '/utilisateurs':
             return self.list_users()
-        elif command == '/status':
+        elif command == '/statut':
             return self.get_status()
-        elif command.startswith('/adduser'):
+        elif command.startswith('/ajouter'):
             return self.add_user(command)
-        elif command.startswith('/delete'):
+        elif command.startswith('/supprimer'):
             return self.delete_user(command)
         else:
-            return "Unknown command. Use /help"
+            return "❌ Commande inconnue. Utilisez /aide"
     
     def add_user(self, command):
         try:
             parts = command.split()
             
             if len(parts) < 4:
-                return "Format: /adduser email password country [group]"
+                return """❌ Format: /ajouter email motdepasse pays [groupe]
+                
+ <b>Exemple complet:</b>
+/ajouter client@email.com MotDePasse123 france groupe_famille
+
+ <b>Informations supplémentaires via messages séparés:</b>
+• Référence France-Visas
+• Prénom et Nom
+• Numéro de passeport
+• Dates de voyage"""
             
-            email = parts[1]
-            password = parts[2]
-            country = parts[3]
-            group_id = parts[4] if len(parts) > 4 else 'default_group'
+            user_data = {
+                'email': parts[1],
+                'password': parts[2],
+                'country': parts[3],
+                'group_id': parts[4] if len(parts) > 4 else 'default_group'
+            }
             
-            if country not in ['france', 'germany']:
-                return "Country must be 'france' or 'germany'"
+            if user_data['country'] not in ['france', 'germany']:
+                return "❌ Le pays doit être 'france' ou 'germany'"
             
-            success = add_tunisian_user(email, password, country, 'schengen', group_id)
+            success = add_complete_user(user_data)
             
             if success:
-                return f"User Added Successfully! Now monitoring every 30 seconds."
+                return f"""✅ <b>Utilisateur Ajouté avec Succès !</b>
+
+ <b>Email:</b> {user_data['email']}
+🇫🇷 <b>Pays:</b> {user_data['country']}
+ <b>Groupe:</b> {user_data['group_id']}
+ <b>Statut:</b> Surveillance toutes les 30 secondes
+
+ <i>Envoyez maintenant les informations supplémentaires séparément.</i>"""
             else:
-                return f"User {email} already exists!"
+                return f"❌ L'utilisateur {user_data['email']} existe déjà !"
                 
         except Exception as e:
-            return f"Error: {str(e)}"
+            return f"❌ Erreur: {str(e)}"
     
     def list_users(self):
         conn = sqlite3.connect('users.db')
@@ -85,14 +103,14 @@ class TelegramCommandHandler:
         conn.close()
         
         if not users:
-            return "No users registered yet"
+            return " Aucun utilisateur enregistré"
         
-        response = "Registered Users:"
+        response = " <b>Utilisateurs Enregistrés:</b>\n\n"
         for email, country, status in users:
-            status_icon = '✔' if status == 'active' else '✘'
-            response += f"\n{status_icon} {email} ({country})"
+            status_icon = '✅' if status == 'active' else '❌'
+            response += f"{status_icon} <code>{email}</code>\n   🇫🇷 {country}\n\n"
         
-        response += f"\n\nTotal: {len(users)} users"
+        response += f" <b>Total:</b> {len(users)} utilisateurs"
         return response
     
     def delete_user(self, command):
@@ -106,11 +124,11 @@ class TelegramCommandHandler:
             conn.close()
             
             if deleted:
-                return f"User {email} deleted successfully"
+                return f"✅ Utilisateur {email} supprimé avec succès"
             else:
-                return f"User {email} not found"
+                return f"❌ Utilisateur {email} non trouvé"
         except:
-            return "Format: /delete email@example.com"
+            return "❌ Format: /supprimer email@exemple.com"
     
     def get_status(self):
         conn = sqlite3.connect('users.db')
@@ -119,24 +137,38 @@ class TelegramCommandHandler:
         active_users = cursor.fetchone()[0]
         conn.close()
         
-        return f"Bot Status: Running | Active Users: {active_users} | Check Interval: 30 seconds"
+        return f""" <b>Statut du Bot</b>
+
+✅ <b>Système:</b> En fonctionnement
+👥 <b>Utilisateurs Actifs:</b> {active_users}
+ <b>Intervalle de Vérification:</b> 30 secondes
+ <b>Limite de Taux:</b> 3 utilisateurs/minute
+
+Utilisez /utilisateurs pour voir tous les utilisateurs"""
     
     def show_help(self):
         return """
-Available Commands:
+ <b>Commandes Disponibles:</b>
 
-/adduser email password country [group]
-   Add new monitoring user
+/ajouter email motdepasse pays [groupe]
+   ↳ Ajouter un nouvel utilisateur
+   <i>Exemple: /ajouter client@email.com MotDePasse123 france famille</i>
 
-/delete email
-   Remove a user
+/supprimer email
+   ↳ Supprimer un utilisateur
+   <i>Exemple: /supprimer ancien@email.com</i>
 
-/users
-   List all registered users
+/utilisateurs
+   ↳ Lister tous les utilisateurs
 
-/status
-   Check bot status
+/statut
+   ↳ Vérifier le statut du bot
 
-/help
-   Show this help
+/aide
+   ↳ Afficher cette aide
+
+💡 <b>Conseils:</b>
+• Le pays doit être 'france' ou 'germany'
+• Le groupe est optionnel (défaut: 'default_group')
+• Le système vérifie toutes les 30 secondes automatiquement
 """
