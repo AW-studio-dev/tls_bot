@@ -21,36 +21,45 @@ def send_telegram(message):
 
 def notify_booking(user_email, country, reference):
     message = f"""
-APPOINTMENT BOOKED!
-Email: {user_email}
-Country: {country}
-Reference: {reference}
-Time: {time.strftime('%Y-%m-%d %H:%M:%S')}
+✅ <b>RENDEZ-VOUS RÉSERVÉ !</b>
+
+ <b>Email:</b> {user_email}
+🇫🇷 <b>Pays:</b> {country}
+ <b>Référence:</b> <code>{reference}</code>
+ <b>Heure:</b> {time.strftime('%d/%m/%Y %H:%M:%S')}
+
+La réservation a été effectuée avec succès !
 """
     return send_telegram(message)
 
 def notify_slot_found(country):
     message = f"""
-SLOT AVAILABLE!
-Country: {country}
-Attempting to book automatically...
-Time: {time.strftime('%Y-%m-%d %H:%M:%S')}
+🚨 <b>CRÉNEAU DISPONIBLE !</b>
+
+🇫🇷 <b>Pays:</b> {country}
+ <b>Tentative de réservation automatique...</b>
+ <b>Heure:</b> {time.strftime('%d/%m/%Y %H:%M:%S')}
 """
     return send_telegram(message)
 
 def notify_system_start():
     message = f"""
-TLScontact Bot Started
-Status: Active and monitoring
-Check Interval: 30 seconds
-Started: {time.strftime('%Y-%m-%d %H:%M:%S')}
+ <b>BOT TLS DÉMARRÉ</b>
+
+✅ <b>Statut:</b> Actif et surveillance
+ <b>Intervalle de vérification:</b> 30 secondes
+👥 <b>Utilisateurs actifs:</b> Surveillance en cours
+ <b>Démarrage:</b> {time.strftime('%d/%m/%Y %H:%M:%S')}
+
+Le système surveille maintenant les créneaux disponibles.
 """
     return send_telegram(message)
 
 def notify_error(error_message):
     message = f"""
-SYSTEM ERROR
-Error: {error_message}
-Time: {time.strftime('%Y-%m-%d %H:%M:%S')}
+❌ <b>ERREUR SYSTÈME</b>
+
+ <b>Erreur:</b> <code>{error_message}</code>
+ <b>Heure:</b> {time.strftime('%d/%m/%Y %H:%M:%S')}
 """
     return send_telegram(message)
