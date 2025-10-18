@@ -1,5 +1,6 @@
 import requests
 import time
+import random
 from config import BRIGHT_DATA_KEY
 
 class ProxyManager:
@@ -34,12 +35,3 @@ class ProxyManager:
             'http': proxy_url,
             'https': proxy_url
         }
-    
-    def test_proxy_connectivity(self):
-        test_url = "https://httpbin.org/ip"
-        try:
-            proxy = self.get_proxy()
-            response = requests.get(test_url, proxies=proxy, timeout=10)
-            return response.status_code == 200
-        except:
-            return False
