@@ -11,17 +11,6 @@ import logging
 from proxy_manager import ProxyManager
 from captcha_solver import CaptchaSolver
 
-# Try to import AI components, but work without them if not available
-try:
-    import cv2
-    import pytesseract
-    import numpy as np
-    AI_CAPABILITIES = True
-    print("✅ AI features enabled")
-except ImportError:
-    AI_CAPABILITIES = False
-    print("⚠️ AI features disabled - CV2/Pytesseract not available")
-
 logging.basicConfig(level=logging.INFO)
 
 class AIAutomation:
@@ -30,7 +19,6 @@ class AIAutomation:
         self.captcha_solver = CaptchaSolver()
         self.driver = self._create_undetected_driver(headless)
         self.wait = WebDriverWait(self.driver, 20)
-        self.ai_enabled = AI_CAPABILITIES
         
     def _create_undetected_driver(self, headless):
         proxy = self.proxy_manager.get_proxy()
@@ -65,50 +53,10 @@ class AIAutomation:
             element.send_keys(char)
             time.sleep(random.uniform(0.1, 0.3))
     
-    def take_screenshot(self):
-        if not self.ai_enabled:
-            return None
-        try:
-            screenshot = self.driver.get_screenshot_as_png()
-            nparr = np.frombuffer(screenshot, np.uint8)
-            return cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        except:
-            return None
-    
-    def extract_text_from_image(self, image):
-        if not self.ai_enabled or image is None:
-            return ""
-        try:
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            text = pytesseract.image_to_string(gray, lang='eng+fra')
-            return text.lower()
-        except:
-            return ""
-    
-    def ai_analyze_page(self):
-        # Method 1: Use AI vision if available
-        if self.ai_enabled:
-            screenshot = self.take_screenshot()
-            if screenshot is not None:
-                text = self.extract_text_from_image(screenshot)
-                if text:
-                    if 'login' in text or 'connexion' in text or 'connectez-vous' in text:
-                        return 'login_page'
-                    elif 'réservez votre rendez-vous' in text or 'prendre rendez-vous' in text:
-                        return 'booking_page'
-                    elif 'contactez-nous' in text and 'rendez-vous' in text:
-                        return 'no_slots_available'
-                    elif 'calendar' in text or 'date' in text or 'créneaux' in text:
-                        return 'slots_available'
-                    elif 'confirmer' in text and 'brouillon' in text:
-                        return 'application_confirmation'
-                    elif 'voyagez en groupe' in text or 'liste des demandes' in text:
-                        return 'travel_groups'
-                    elif 'france-visas' in text or 'numéro de référence' in text:
-                        return 'application_form'
-        
-        # Method 2: Fallback to page source analysis
+    def analyze_page(self):
+        """Simple page analysis without AI"""
         page_source = self.driver.page_source.lower()
+        current_url = self.driver.current_url
         
         if 'login' in page_source or 'connexion' in page_source or 'connectez-vous' in page_source:
             return 'login_page'
@@ -124,6 +72,10 @@ class AIAutomation:
             return 'travel_groups'
         elif 'france-visas' in page_source or 'numéro de référence' in page_source:
             return 'application_form'
+        elif 'travel-groups' in current_url:
+            return 'travel_groups'
+        elif 'appointment-booking' in current_url:
+            return 'booking_page'
         else:
             return 'unknown_page'
     
@@ -137,7 +89,7 @@ class AIAutomation:
             
             max_attempts = 3
             for attempt in range(max_attempts):
-                page_type = self.ai_analyze_page()
+                page_type = self.analyze_page()
                 
                 if page_type == 'login_page':
                     try:
@@ -176,14 +128,14 @@ class AIAutomation:
     
     def check_availability(self):
         try:
-            page_type = self.ai_analyze_page()
+            page_type = self.analyze_page()
             return page_type == 'slots_available'
         except:
             return False
     
     def complete_application_form(self, user_data):
         try:
-            if 'application_form' not in self.ai_analyze_page():
+            if 'application_form' not in self.analyze_page():
                 return False
             
             self.human_like_delay()
@@ -238,7 +190,7 @@ class AIAutomation:
         try:
             max_attempts = 5
             for attempt in range(max_attempts):
-                page_type = self.ai_analyze_page()
+                page_type = self.analyze_page()
                 
                 if page_type == 'slots_available':
                     book_buttons = self.driver.find_elements(By.XPATH, "//button[contains(., 'Book') or contains(., 'Réserver') or contains(., 'Sélectionner') or contains(., 'Choisir')]")
