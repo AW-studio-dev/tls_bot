@@ -4,8 +4,10 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.service import Service
+import undetected_chromedriver as uc
+import cv2
+import pytesseract
+import numpy as np
 import time
 import random
 import logging
@@ -18,17 +20,17 @@ class AIAutomation:
     def __init__(self, headless=True):
         self.proxy_manager = ProxyManager()
         self.captcha_solver = CaptchaSolver()
-        self.driver = self._create_driver(headless)
+        self.driver = self._create_undetected_driver(headless)
         self.wait = WebDriverWait(self.driver, 20)
         
-    def _create_driver(self, headless):
+    def _create_undetected_driver(self, headless):
         proxy = self.proxy_manager.get_proxy()
+        proxy_url = proxy['http'] if proxy else None
         
-        options = Options()
+        options = uc.ChromeOptions()
         
         if headless:
             options.add_argument('--headless')
-            options.add_argument('--disable-gpu')
             
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
@@ -36,26 +38,10 @@ class AIAutomation:
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
         
+        if proxy_url:
+            options.add_argument(f'--proxy-server={proxy_url}')
         
-        options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-        
-        # Proxy configuration
-        if proxy:
-            options.add_argument(f'--proxy-server={proxy["http"]}')
-        
-        # Additional stealth opts
-        options.add_argument('--disable-blink-features=AutomationControlled')
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_experimental_option('useAutomationExtension', False)
-        
-        # Use webdriver-manager
-        service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=options)
-        
-        # CDP commands to avoid detection
-        driver.execute_cdp_cmd('Network.setUserAgentOverride', {
-            "userAgent": 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        })
+        driver = uc.Chrome(options=options)
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         
         return driver
@@ -68,33 +54,35 @@ class AIAutomation:
             element.send_keys(char)
             time.sleep(random.uniform(0.1, 0.3))
     
-    def analyze_page(self):
-        """Simple page analysis"""
-        try:
-            page_source = self.driver.page_source.lower()
-            current_url = self.driver.current_url
-            
-            if 'login' in page_source or 'connexion' in page_source or 'connectez-vous' in page_source:
-                return 'login_page'
-            elif 'réservez votre rendez-vous' in page_source or 'prendre rendez-vous' in page_source:
-                return 'booking_page'
-            elif 'contactez-nous' in page_source and 'rendez-vous' in page_source:
-                return 'no_slots_available'
-            elif 'calendar' in page_source or 'date' in page_source or 'créneaux' in page_source:
-                return 'slots_available'
-            elif 'confirmer' in page_source and 'brouillon' in page_source:
-                return 'application_confirmation'
-            elif 'voyagez en groupe' in page_source or 'liste des demandes' in page_source:
-                return 'travel_groups'
-            elif 'france-visas' in page_source or 'numéro de référence' in page_source:
-                return 'application_form'
-            elif 'travel-groups' in current_url:
-                return 'travel_groups'
-            elif 'appointment-booking' in current_url:
-                return 'booking_page'
-            else:
-                return 'unknown_page'
-        except:
+    def take_screenshot(self):
+        screenshot = self.driver.get_screenshot_as_png()
+        nparr = np.frombuffer(screenshot, np.uint8)
+        return cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    
+    def extract_text_from_image(self, image):
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        text = pytesseract.image_to_string(gray, lang='eng+fra')
+        return text.lower()
+    
+    def ai_analyze_page(self):
+        screenshot = self.take_screenshot()
+        text = self.extract_text_from_image(screenshot)
+        
+        if 'login' in text or 'connexion' in text or 'connectez-vous' in text:
+            return 'login_page'
+        elif 'réservez votre rendez-vous' in text or 'prendre rendez-vous' in text:
+            return 'booking_page'
+        elif 'contactez-nous' in text and 'rendez-vous' in text:
+            return 'no_slots_available'
+        elif 'calendar' in text or 'date' in text or 'créneaux' in text:
+            return 'slots_available'
+        elif 'confirmer' in text and 'brouillon' in text:
+            return 'application_confirmation'
+        elif 'voyagez en groupe' in text or 'liste des demandes' in text:
+            return 'travel_groups'
+        elif 'france-visas' in text or 'numéro de référence' in text:
+            return 'application_form'
+        else:
             return 'unknown_page'
     
     def smart_login(self, email, password, country):
@@ -107,7 +95,7 @@ class AIAutomation:
             
             max_attempts = 3
             for attempt in range(max_attempts):
-                page_type = self.analyze_page()
+                page_type = self.ai_analyze_page()
                 
                 if page_type == 'login_page':
                     try:
@@ -146,33 +134,38 @@ class AIAutomation:
     
     def check_availability(self):
         try:
-            page_type = self.analyze_page()
+            page_type = self.ai_analyze_page()
             return page_type == 'slots_available'
         except:
             return False
     
     def complete_application_form(self, user_data):
         try:
-            if 'application_form' not in self.analyze_page():
+            if 'application_form' not in self.ai_analyze_page():
                 return False
             
             self.human_like_delay()
             
-            # Fill France-Visas reference if available
-            france_visas_ref = user_data.get('france_visas_ref', '')
-            if france_visas_ref:
-                try:
-                    ref_fields = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'France-Visas') or contains(text(), 'référence')]/following::input[1]")
-                    if ref_fields:
-                        self.human_type(ref_fields[0], france_visas_ref)
-                        self.human_like_delay(0.5, 1)
-                except:
-                    pass
+            form_data = {
+                'France-Visas Reference': user_data.get('france_visas_ref', ''),
+                'First Name': user_data.get('first_name', ''),
+                'Last Name': user_data.get('last_name', ''),
+                'Passport Number': user_data.get('passport_number', ''),
+                'Phone Number': user_data.get('phone_number', '')
+            }
             
-            # Look for submit buttons
-            submit_btns = self.driver.find_elements(By.XPATH, "//button[contains(., 'Soumettre') or contains(., 'Confirmer') or contains(., 'Continuer')]")
-            if submit_btns:
-                submit_btns[0].click()
+            for field_name, value in form_data.items():
+                if value:
+                    try:
+                        field = self.driver.find_element(By.XPATH, f"//*[contains(text(), '{field_name}')]/following::input[1]")
+                        self.human_type(field, value)
+                        self.human_like_delay(0.5, 1)
+                    except:
+                        continue
+            
+            submit_btn = self.driver.find_elements(By.XPATH, "//button[contains(., 'Soumettre') or contains(., 'Confirmer')]")
+            if submit_btn:
+                submit_btn[0].click()
                 self.human_like_delay(2, 4)
                 return True
             
@@ -186,17 +179,17 @@ class AIAutomation:
         try:
             max_attempts = 5
             for attempt in range(max_attempts):
-                page_type = self.analyze_page()
+                page_type = self.ai_analyze_page()
                 
                 if page_type == 'slots_available':
-                    book_buttons = self.driver.find_elements(By.XPATH, "//button[contains(., 'Book') or contains(., 'Réserver') or contains(., 'Sélectionner') or contains(., 'Choisir')]")
+                    book_buttons = self.driver.find_elements(By.XPATH, "//button[contains(., 'Book') or contains(., 'Réserver') or contains(., 'Sélectionner')]")
                     if book_buttons:
                         book_buttons[0].click()
                         self.human_like_delay(2, 4)
                         continue
                 
                 elif page_type == 'application_confirmation':
-                    confirm_buttons = self.driver.find_elements(By.XPATH, "//button[contains(., 'Confirmer') or contains(., 'Confirm')]")
+                    confirm_buttons = self.driver.find_elements(By.XPATH, "//button[contains(., 'Confirmer')]")
                     if confirm_buttons:
                         confirm_buttons[0].click()
                         self.human_like_delay(2, 4)
