@@ -38,7 +38,7 @@ class TelegramCommandHandler:
         command = command.lower()
         
         if command == '/start':
-            return " <b>Bot AI TLS Démarré !</b>\nUtilisez /aide pour les commandes"
+            return "🤖 <b>Bot AI TLS Démarré !</b>\nUtilisez /aide pour les commandes"
         elif command == '/aide':
             return self.show_help()
         elif command == '/utilisateurs':
@@ -59,10 +59,10 @@ class TelegramCommandHandler:
             if len(parts) < 4:
                 return """❌ Format: /ajouter email motdepasse pays [groupe]
                 
- <b>Exemple complet:</b>
+📝 <b>Exemple complet:</b>
 /ajouter client@email.com MotDePasse123 france groupe_famille
 
- <b>Informations supplémentaires via messages séparés:</b>
+📝 <b>Informations supplémentaires via messages séparés:</b>
 • Référence France-Visas
 • Prénom et Nom
 • Numéro de passeport
@@ -83,12 +83,12 @@ class TelegramCommandHandler:
             if success:
                 return f"""✅ <b>Utilisateur Ajouté avec Succès !</b>
 
- <b>Email:</b> {user_data['email']}
+📧 <b>Email:</b> {user_data['email']}
 🇫🇷 <b>Pays:</b> {user_data['country']}
- <b>Groupe:</b> {user_data['group_id']}
- <b>Statut:</b> Surveillance toutes les 30 secondes
+🆔 <b>Groupe:</b> {user_data['group_id']}
+🔍 <b>Statut:</b> Surveillance toutes les 30 secondes
 
- <i>Envoyez maintenant les informations supplémentaires séparément.</i>"""
+💡 <i>Envoyez maintenant les informations supplémentaires séparément.</i>"""
             else:
                 return f"❌ L'utilisateur {user_data['email']} existe déjà !"
                 
