@@ -3,8 +3,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BOT_TOKEN = '8492137210:AAEPE77aov1kzG7EZ5E7KmZxGrxBiOIumxU'
-ADMIN_CHAT_ID = '5991222987'
+BOT_TOKEN = 'replace'
+ADMIN_CHAT_ID = 'replace'
 
 TLS_FRANCE_BASE = 'https://visas-fr.tlscontact.com'
 TLS_GERMANY_BASE = 'https://visas-de.tlscontact.com'
