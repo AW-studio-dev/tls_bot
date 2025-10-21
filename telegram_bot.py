@@ -23,8 +23,8 @@ def notify_booking(user_email, country, reference):
     message = f"""
 ✅ <b>RENDEZ-VOUS RÉSERVÉ !</b>
 
- <b>Email:</b> {user_email}
-🇫🇷 <b>Pays:</b> {country}
+<b>Email:</b> {user_email}
+<b>Pays:</b> {country}
  <b>Référence:</b> <code>{reference}</code>
  <b>Heure:</b> {time.strftime('%d/%m/%Y %H:%M:%S')}
 
@@ -34,7 +34,7 @@ La réservation a été effectuée avec succès !
 
 def notify_slot_found(country):
     message = f"""
-🚨 <b>CRÉNEAU DISPONIBLE !</b>
+ <b>CRÉNEAU DISPONIBLE !</b>
 
 🇫🇷 <b>Pays:</b> {country}
  <b>Tentative de réservation automatique...</b>
